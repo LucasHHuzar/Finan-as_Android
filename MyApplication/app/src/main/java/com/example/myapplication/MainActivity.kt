@@ -9,16 +9,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.room.Room
-import androidx.room.RoomDatabase
+import androidx.room.*
 import com.example.myapplication.ui.theme.MyApplicationTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+
 
 class MainActivity : ComponentActivity() {
-
-    private lateinit var db: AppDatabase
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -32,6 +34,8 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LayoutMain() {
+    val context = LocalContext.current
+    val db = remember { AppDatabase.getDatabase(context) }
     var usuariosNome by remember { mutableStateOf("") }
     var usuariosCpf by remember { mutableStateOf("") }
     var usuariosSaldo by remember { mutableStateOf("") }
@@ -46,7 +50,6 @@ fun LayoutMain() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Campo para o nome do usuário
         TextField(
             value = usuariosNome,
             onValueChange = { usuariosNome = it },
@@ -55,7 +58,6 @@ fun LayoutMain() {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Campo para o cpf do usuário
         TextField(
             value = usuariosCpf,
             onValueChange = { usuariosCpf = it },
@@ -64,7 +66,6 @@ fun LayoutMain() {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Campo para o saldo do usuário
         TextField(
             value = usuariosSaldo,
             onValueChange = { usuariosSaldo = it },
@@ -73,55 +74,61 @@ fun LayoutMain() {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Botão para inserir usuário
         Button(onClick = {
             val saldo = usuariosSaldo.toDoubleOrNull() ?: 0.0
-            addUsuarios(usuariosNome, usuariosCpf, saldo, ) // Função para inserir usuário (implementada mais abaixo)
-            mensagem = "Usuário $usuariosNome adicionado!"
+            val novoUsuario = Usuario(nome = usuariosNome, cpf = usuariosCpf, saldo = saldo)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                db.usuarioDAO().insertUsuario(novoUsuario)
+                mensagem = "Usuário $usuariosNome adicionado!"
+            }
+
             usuariosNome = ""
+            usuariosCpf = ""
             usuariosSaldo = ""
-            loadUserList() // Atualiza a lista de usuários (implementada mais abaixo)
         }) {
             Text("Salvar Usuário")
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Botão para listar usuários
+        // Listar usuários
         Button(onClick = {
-            loadUserList() // Função para carregar a lista de usuários (implementada mais abaixo)
+            CoroutineScope(Dispatchers.IO).launch {
+                usuariosList = db.usuarioDAO().getAllUsuarios()
+            }
         }) {
             Text("Listar Usuários")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Mensagem de resultado
         Text(text = mensagem)
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Lista de usuários
         LazyColumn {
             items(usuariosList) { usuario ->
-                Text(text = "${usuario.nome} - Saldo: ${usuario.saldo}")
-                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "${usuario.nome} - Saldo: ${usuario.saldo}")
+
+                    Button(
+                        onClick = {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                db.usuarioDAO().deleteUsuario(usuario.id)
+                                usuariosList = db.usuarioDAO().getAllUsuarios() // Atualizar lista após deletar
+                            }
+                        }
+                    ) {
+                        Text("Deletar")
+                    }
+                }
             }
         }
     }
-}
-
-// Simulação de inserção de usuário
-private fun addUsuarios(usuariosNome: String, cpf: String, saldoInicial: Double, db: AppDatabase) {
-    val novoUsuario = Usuario(nome = usuariosNome, cpf = cpf, saldo = saldoInicial)
-    db.usuarioDAO().insertUsuario(novoUsuario)
-}
-
-// Simulação de carregamento de lista de usuários
-suspend fun carregarUsuarios(usuariosId: Int, db: AppDatabase): Usuario? {
-    return db.usuarioDAO().getUsuariosById(usuariosId)
-}
-
-suspend fun deleteUser(usuarioId: Int, db: AppDatabase) {
-    db.usuarioDAO().deleteUsuarios(usuarioId)
 }

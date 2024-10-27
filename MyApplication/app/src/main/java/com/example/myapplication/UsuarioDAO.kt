@@ -6,17 +6,12 @@ import androidx.room.Query
 
 @Dao
 interface UsuarioDAO {
-
     @Insert
     suspend fun insertUsuario(usuario: Usuario)
 
-    @Query("SELECT * FROM usuarios WHERE nome = :usuariosId")
-    suspend fun getUsuariosById(usuariosId: Int): Usuario?
+    @Query("SELECT * FROM usuarios")
+    suspend fun getAllUsuarios(): List<Usuario>
 
-    @Query("UPDATE usuarios SET saldo = :novoSaldo WHERE id = :usuariosId")
-    suspend fun updateUsuariosSaldo(usuariosId: Int, novoSaldo: Double)
-
-    @Query("DELETE FROM usuarios WHERE id = :usuariosId")
-    suspend fun deleteUsuarios(usuariosId: Int)
-
+    @Query("DELETE FROM usuarios WHERE id = :usuarioId")
+    suspend fun deleteUsuario(usuarioId: Int)
 }
